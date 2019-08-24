@@ -6,12 +6,14 @@ set(STORE_NAME store)
 set(QT_LIBS
         Qt5::Core
         Qt5::Widgets
+        Qt5::WebSockets
 )
 
 set(STORE_SOURCES
         store.cpp
         StoreMainWindow.cpp
         StoreMainWindow.h
+        ../utils.h
 )
 
 add_executable(${STORE_NAME} ${STORE_SOURCES})

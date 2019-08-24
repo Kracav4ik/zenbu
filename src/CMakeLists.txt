@@ -12,6 +12,7 @@ set(CMAKE_AUTORCC ON)
 # Find the QtWidgets library
 find_package(Qt5Core REQUIRED)
 find_package(Qt5Widgets REQUIRED)
+find_package(Qt5WebSockets REQUIRED)
 
 add_subdirectory(store)
 add_subdirectory(lister_fs)

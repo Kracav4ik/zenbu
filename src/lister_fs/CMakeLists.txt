@@ -5,12 +5,14 @@ set(LISTER_FS_NAME lister_fs)
 set(QT_LIBS
         Qt5::Core
         Qt5::Widgets
+        Qt5::WebSockets
 )
 
 set(LISTER_FS_SOURCES
         listerFs.cpp
         ListerFsMainWindow.h
         ListerFsMainWindow.cpp
+        ../utils.h
 )
 
 add_executable(${LISTER_FS_NAME} ${LISTER_FS_SOURCES})
