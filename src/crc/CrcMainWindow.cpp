@@ -3,7 +3,7 @@
 #include <QtWebSockets/QtWebSockets>
 
 CrcMainWindow::CrcMainWindow()
-        : m_webSocket(new QWebSocket("CRC"))
+: m_webSocket(new QWebSocket(CRC))
 {
     setupUi(this);
 
@@ -15,18 +15,17 @@ CrcMainWindow::CrcMainWindow()
 }
 
 void CrcMainWindow::onConnected() {
-    qDebug() << "WebSocket connected";
+    log("WebSocket connected");
     connect(m_webSocket, &QWebSocket::textMessageReceived,
             this, &CrcMainWindow::onTextMessageReceived);
-    m_webSocket->sendTextMessage("Hello, world!");
 }
 
 void CrcMainWindow::closed() {
-    qDebug() << "WebSocket connection closed";
+    log("WebSocket connection closed");
 }
 
 void CrcMainWindow::onTextMessageReceived(const QString& message) {
-    qDebug() << "Message received:" << message;
+    log(QString("Message received: %1").arg(message));
 }
 
 CrcMainWindow::~CrcMainWindow() = default;
