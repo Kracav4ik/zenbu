@@ -4,6 +4,9 @@
 #include <QDebug>
 
 const int PORT = 2228;
+const QString ADD_ROOT = "Add root";
+const QString TAKE_ALL_DATA = "Take all data";
+const QString TAKE_UNTOUCHED_DIRS = "Take untouched dirs";
 const QString LISTER = "Lister";
 const QString CRC = "CRC";
 

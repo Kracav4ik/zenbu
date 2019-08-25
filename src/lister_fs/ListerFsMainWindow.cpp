@@ -1,6 +1,7 @@
 #include "ListerFsMainWindow.h"
 #include "utils.h"
 #include <QtWebSockets/QtWebSockets>
+#include <QFileDialog>
 
 ListerFsMainWindow::ListerFsMainWindow()
 : m_webSocket(new QWebSocket(LISTER))
@@ -9,7 +10,12 @@ ListerFsMainWindow::ListerFsMainWindow()
 
     connect(m_webSocket, &QWebSocket::connected, this, &ListerFsMainWindow::onConnected);
     connect(m_webSocket, &QWebSocket::disconnected, this, &ListerFsMainWindow::closed);
-    connect(this, &ListerFsMainWindow::send, this, &ListerFsMainWindow::slotSend);
+    connect(addRoot, &QPushButton::clicked, this, &ListerFsMainWindow::slotAddRoot);
+    connect(this, &ListerFsMainWindow::sendMainThread, this, &ListerFsMainWindow::slotSend);
+    connect(this, &ListerFsMainWindow::updatePathsList, this, &ListerFsMainWindow::slotUpdatePathsList);
+    connect(this, &ListerFsMainWindow::updateRootsList, this, &ListerFsMainWindow::slotUpdateRootsList);
+    connect(searchButton, &QPushButton::clicked, this, &ListerFsMainWindow::takeAllData);
+
     m_webSocket->open(QString("ws://localhost:%1").arg(PORT));
 
     show();
@@ -18,6 +24,12 @@ ListerFsMainWindow::ListerFsMainWindow()
 void ListerFsMainWindow::onConnected() {
     log("WebSocket connected");
     connect(m_webSocket, &QWebSocket::binaryMessageReceived, this, &ListerFsMainWindow::onBinaryMessageReceived);
+    takeAllData();
+
+    QJsonObject obj;
+    obj["command"] = TAKE_UNTOUCHED_DIRS;
+    obj["data"] = {};
+    send(obj);
 }
 
 void ListerFsMainWindow::closed() {
@@ -37,17 +49,25 @@ void ListerFsMainWindow::onBinaryMessageReceived(const QByteArray& message) {
 
             QJsonDocument doc = QJsonDocument::fromJson(message, &er);
             if (er.error == QJsonParseError::NoError) {
-                process(doc);
+                const QString& command = doc.object()["command"].toString();
+                const QJsonArray& data = doc.object()["data"].toArray();
+
+                if (command == TAKE_UNTOUCHED_DIRS) {
+                    process(data);
+                } else if (command == TAKE_ALL_DATA) {
+                    emit parent.updatePathsList(data);
+                } else if (command == ADD_ROOT) {
+                    emit parent.updateRootsList(data);
+                }
             } else {
                 log("JSON PARSE ERROR!!:");
                 log(QString::fromUtf8(message));
             }
         }
 
-        void process(const QJsonDocument& doc) {
-            QJsonArray arr = doc.array();
+        void process(const QJsonArray& arr) {
             QJsonArray sendArr;
-            for (const QJsonValueRef& val : arr) {
+            for (const auto& val : arr) {
                 QDir dir(val.toObject()["path"].toString());
                 QJsonArray childrenArr;
                 QJsonArray objArr;
@@ -78,18 +98,60 @@ void ListerFsMainWindow::onBinaryMessageReceived(const QByteArray& message) {
                 dirObj["children"] = childrenArr;
                 sendArr.append(dirObj);
             }
-            send(QJsonDocument(sendArr));
+            QJsonObject obj;
+            obj["command"] = TAKE_UNTOUCHED_DIRS;
+            obj["data"] = sendArr;
+            send(QJsonDocument(obj));
         }
         void send(const QJsonDocument& doc) {
-            emit parent.send(doc.toJson());
+            emit parent.sendMainThread(doc);
         }
     };
 
     QThreadPool::globalInstance()->start(new Worker(message, *this));
 }
 
-void ListerFsMainWindow::slotSend(const QByteArray& arr) {
-    m_webSocket->sendBinaryMessage(arr);
+void ListerFsMainWindow::slotSend(const QJsonDocument& doc) {
+    send(doc.object());
+    takeAllData();
+}
+
+void ListerFsMainWindow::takeAllData() {
+    QJsonObject obj;
+    obj["command"] = TAKE_ALL_DATA;
+    obj["data"] = search->text();
+    send(obj);
+}
+
+void ListerFsMainWindow::slotUpdatePathsList(const QJsonArray& arr) {
+    updateArrayToList(paths, arr);
+}
+
+void ListerFsMainWindow::slotUpdateRootsList(const QJsonArray& arr) {
+    updateArrayToList(roots, arr);
+}
+
+void ListerFsMainWindow::updateArrayToList(QListWidget* list, const QJsonArray& arr) const {
+    list->clear();
+    for (const auto& item : arr) {
+        list->addItem(item.toObject()["path"].toString());
+    }
+}
+
+void ListerFsMainWindow::slotAddRoot() {
+    QString path = QFileDialog::getExistingDirectory(this, "Select root dir");
+    if (!path.isEmpty()) {
+        QJsonObject obj;
+        obj["command"] = ADD_ROOT;
+        obj["data"] = path;
+        roots->addItem(path);
+
+        send(obj);
+    }
+}
+
+void ListerFsMainWindow::send(const QJsonObject& obj) const {
+    m_webSocket->sendBinaryMessage(QJsonDocument(obj).toJson());
 }
 
 ListerFsMainWindow::~ListerFsMainWindow() = default;
